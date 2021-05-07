@@ -1,3 +1,11 @@
+/*
+* garlic_extract
+* QM / Team210
+*
+* this extracts the garlic_crust Sequence from a midi file, given as command line argument
+*
+*/
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     println!("cli arguments: {:?}", args);
@@ -9,14 +17,14 @@ fn main() {
 
     let midi_bytes = std::fs::read(&args[1]).unwrap();
     let smf = midly::Smf::parse(&midi_bytes).unwrap();
-
     println!("HEADER: {:?}", smf.header);
 
     let mut track_iter = smf.tracks.iter();
     // expectation: first track holds the tempo information (which we need if the header is just giving us the Metrical information PPQ, i.e. how many ticks per beat)
     let meta_track = track_iter.next().unwrap();
-
     let secs_per_tick = calculate_secs_per_tick(&smf.header.timing, &meta_track);
+
+    let mut sequences = std::vec::Vec<std::vec::Vec<SeqEvent>>::new();
 
     for (t, track) in track_iter.enumerate() {
         println!("------ track {} has {} events", t, track.len());
