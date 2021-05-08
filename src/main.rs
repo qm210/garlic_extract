@@ -75,7 +75,7 @@ fn main() {
                     }
                 },
                 garlic::SeqMsg::NoteOff => {
-                    match sequences.iter_mut().find(find_sequence_with_open_note(key)) => {
+                    match sequences.iter_mut().find(|&mut seq| find_sequence_with_open_note(&&mut seq, note.key)) {
                         Some(lowest_open_sequence) => {
                             lowest_open_sequence.push(note_event);
                         },
