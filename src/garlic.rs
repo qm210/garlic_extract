@@ -16,6 +16,7 @@ pub struct SeqEvent {
     pub message: SeqMsg,
 }
 
+/*
 pub enum SeqMsg {
     NoteOn(SeqParameter, SeqParameter),
     NoteOff,
@@ -23,4 +24,54 @@ pub enum SeqMsg {
     SetSlide,
     SetPan,
     // ...?
+}
+*/
+
+#[derive(Debug)]
+pub enum SeqMsg {
+    NoteOn,
+    NoteOff
+}
+
+#[derive(Debug)]
+pub struct NoteMessage {
+    channel: usize,
+    key: usize,
+    vel: usize,
+    msg: SeqMsg,
+}
+
+impl NoteMessage {
+    pub fn from(message: &midly::MidiMessage, channel: &midly::num::u4) -> Option<NoteMessage> {
+        let channel = channel.as_int() as usize;
+        if let midly::MidiMessage::NoteOn {key, vel} = message {
+            return Some(NoteMessage {
+                channel: channel,
+                key: key.as_int() as usize,
+                vel: vel.as_int() as usize,
+                msg: SeqMsg::NoteOn,
+            });
+        }
+        if let midly::MidiMessage::NoteOff {key, vel} = message {
+            return Some(NoteMessage {
+                channel: channel,
+                key: key.as_int() as usize,
+                vel: vel.as_int() as usize,
+                msg: SeqMsg::NoteOff,
+            });
+        }
+
+        None
+    }
+}
+
+impl std::fmt::Display for NoteMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.msg {
+            SeqMsg::NoteOn =>
+                write!(f, "SeqMsg::NoteOn({}, {})", self.key as SeqParameter, self.vel as SeqParameter),
+            SeqMsg::NoteOff =>
+                write!(f, "SeqMsg::NoteOff")
+        }
+    }
 }

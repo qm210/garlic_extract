@@ -8,35 +8,7 @@
 
 mod garlic;
 
-struct NoteMessage {
-    channel: usize,
-    key: usize,
-    vel: usize,
-}
-
-impl NoteMessage {
-    pub fn from(message: &midly::MidiMessage, channel: &midly::num::u4) -> Option<NoteMessage> {
-        let channel = channel.as_int() as usize;
-        if let midly::MidiMessage::NoteOn {key, vel} = message {
-            return Some(NoteMessage {
-                channel: channel,
-                key: key.as_int() as usize,
-                vel: vel.as_int() as usize,
-            });
-        }
-        if let midly::MidiMessage::NoteOff {key, vel} = message {
-            return Some(NoteMessage {
-                channel: channel,
-                key: key.as_int() as usize,
-                vel: vel.as_int() as usize,
-            });
-        }
-
-        None
-    }
-}
-
-type GroupedMessageMap = std::collections::BTreeMap::<usize, Vec<NoteMessage>>;
+type GroupedMessageMap = std::collections::BTreeMap::<usize, Vec<garlic::NoteMessage>>;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -73,10 +45,10 @@ fn main() {
             if let midly::TrackEventKind::Midi{message, channel} = event.kind {
                 match message {
                     midly::MidiMessage::NoteOn{..} => {
-                        sort_into_map(&mut time_grouped_noteons, current_tick, NoteMessage::from(&message, &channel).unwrap());
+                        sort_into_map(&mut time_grouped_noteons, current_tick, garlic::NoteMessage::from(&message, &channel).unwrap());
                     },
                     midly::MidiMessage::NoteOff{..} => {
-                        sort_into_map(&mut time_grouped_noteoffs, current_tick, NoteMessage::from(&message, &channel).unwrap());
+                        sort_into_map(&mut time_grouped_noteoffs, current_tick, garlic::NoteMessage::from(&message, &channel).unwrap());
                     }
                     _ => ()
                 }
@@ -86,10 +58,16 @@ fn main() {
 
     let mut sequences = Vec::<garlic::Seq>::new();
 
+    let group_iterator = time_grouped_noteoffs.iter();
+    for (tick, group) in group_iterator {
+        let time = (*tick as f32) * secs_per_tick;
+        println!("NoteOff group at {} -- {:?}", time, group);
+    }
+
     let group_iterator = time_grouped_noteons.iter();
     for (tick, group) in group_iterator {
         let time = (*tick as f32) * secs_per_tick;
-        println!("group at {} -- {:?}", time, group);
+        println!("NoteOn group at {} -- {:?}", time, group);
     }
 
 }
@@ -126,13 +104,8 @@ fn calculate_secs_per_tick(timing: &midly::Timing, track: &midly::Track) -> f32 
 
 fn sort_into_map(map: &mut GroupedMessageMap, current_tick: usize, message: NoteMessage) {
     if let Some(current_events) = map.get_mut(&current_tick) {
-        match message {
-            midly::MidiMessage::NoteOn {key, ..} | midly::MidiMessage::NoteOff {key, ..} {
-                let position = current_events.binary_search(&)
-                current_events.push(message);
-            }
-            _ => (),
-        }
+        let position = current_events.iter().position(|msg| msg.key > message.key).unwrap_or(current_events.len());
+        current_events.insert(position, message);
     } else {
         map.insert(current_tick, vec![message]);
     }
