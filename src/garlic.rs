@@ -5,16 +5,12 @@ pub type TimeFloat = f32;
 
 pub type SeqParameter = f32; // check whether we have enough withi half::f16
 
-pub struct Seq {
-    events: Vec<SeqEvent>,
-    open_note: Option<midly::num::u7>,
-    channel: midly::num::u4,
-}
-
 pub struct SeqEvent {
     pub time: TimeFloat,
-    pub message: SeqMsg,
+    pub message: NoteMessage,
 }
+
+pub type Sequence = Vec::<SeqEvent>;
 
 /*
 pub enum SeqMsg {
@@ -27,18 +23,18 @@ pub enum SeqMsg {
 }
 */
 
-#[derive(Debug)]
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Copy, Clone)]
 pub enum SeqMsg {
+    NoteOff,
     NoteOn,
-    NoteOff
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct NoteMessage {
-    channel: usize,
-    key: usize,
-    vel: usize,
-    msg: SeqMsg,
+    pub msg: SeqMsg,
+    pub key: usize,
+    pub vel: usize,
+    pub channel: usize,
 }
 
 impl NoteMessage {

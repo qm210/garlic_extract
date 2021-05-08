@@ -10,6 +10,8 @@ mod garlic;
 
 type GroupedMessageMap = std::collections::BTreeMap::<usize, Vec<garlic::NoteMessage>>;
 
+// to be clear: channel is ignored right now. I don't even know where to put this comment, so little do I care about it.
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     println!("cli arguments: {:?}", args);
@@ -28,8 +30,7 @@ fn main() {
     let meta_track = track_iter.next().unwrap();
     let secs_per_tick = calculate_secs_per_tick(&smf.header.timing, &meta_track);
 
-    let mut time_grouped_noteons = GroupedMessageMap::new();
-    let mut time_grouped_noteoffs = GroupedMessageMap::new();
+    let mut time_grouped_messages = GroupedMessageMap::new();
 
     for track in track_iter {
         //println!("------ track {} has {} events", t, track.len());
@@ -44,30 +45,45 @@ fn main() {
             }
             if let midly::TrackEventKind::Midi{message, channel} = event.kind {
                 match message {
-                    midly::MidiMessage::NoteOn{..} => {
-                        sort_into_map(&mut time_grouped_noteons, current_tick, garlic::NoteMessage::from(&message, &channel).unwrap());
+                    midly::MidiMessage::NoteOn{..} | midly::MidiMessage::NoteOff{..} => {
+                        sort_into_map(&mut time_grouped_messages, current_tick, garlic::NoteMessage::from(&message, &channel).unwrap());
                     },
-                    midly::MidiMessage::NoteOff{..} => {
-                        sort_into_map(&mut time_grouped_noteoffs, current_tick, garlic::NoteMessage::from(&message, &channel).unwrap());
-                    }
                     _ => ()
                 }
             }
         }
     }
 
-    let mut sequences = Vec::<garlic::Seq>::new();
+    let mut sequences = Vec::<garlic::Sequence>::new();
 
-    let group_iterator = time_grouped_noteoffs.iter();
+    let group_iterator = time_grouped_messages.iter();
     for (tick, group) in group_iterator {
         let time = (*tick as f32) * secs_per_tick;
-        println!("NoteOff group at {} -- {:?}", time, group);
-    }
+        println!("Note group at {} -- {:?}", time, group);
 
-    let group_iterator = time_grouped_noteons.iter();
-    for (tick, group) in group_iterator {
-        let time = (*tick as f32) * secs_per_tick;
-        println!("NoteOn group at {} -- {:?}", time, group);
+        for note in group.iter() {
+            let note_event = garlic::SeqEvent { time, message: *note };
+            match note.msg {
+                garlic::SeqMsg::NoteOn => {
+                    match sequences.iter_mut().find(find_free_sequence) {
+                        Some(lowest_free_sequence) => {
+                            lowest_free_sequence.push(note_event);
+                        },
+                        None => {
+                            sequences.push(vec![note_event]);
+                        }
+                    }
+                },
+                garlic::SeqMsg::NoteOff => {
+                    match sequences.iter_mut().find(find_sequence_with_open_note(key)) => {
+                        Some(lowest_open_sequence) => {
+                            lowest_open_sequence.push(note_event);
+                        },
+                        None => (),
+                    }
+                }
+            }
+        }
     }
 
 }
@@ -102,11 +118,40 @@ fn calculate_secs_per_tick(timing: &midly::Timing, track: &midly::Track) -> f32 
     secs_per_tick
 }
 
-fn sort_into_map(map: &mut GroupedMessageMap, current_tick: usize, message: NoteMessage) {
+fn sort_into_map(map: &mut GroupedMessageMap, current_tick: usize, message: garlic::NoteMessage) {
     if let Some(current_events) = map.get_mut(&current_tick) {
-        let position = current_events.iter().position(|msg| msg.key > message.key).unwrap_or(current_events.len());
+        let position = current_events.iter().position(|it| it.msg > message.msg || (it.msg == message.msg && it.key > message.key)).unwrap_or(current_events.len());
         current_events.insert(position, message);
     } else {
         map.insert(current_tick, vec![message]);
+    }
+}
+
+// guess I can put this into Iterator trait's position():
+// pub fn position<P>(&mut self, predicate: P) -> Option<usize> where P: FnMut(Self::Item) -> bool
+fn find_free_sequence (seq: & &mut Vec::<garlic::SeqEvent>) -> bool {
+    match seq.last() {
+        Some(garlic::SeqEvent {
+            message: garlic::NoteMessage {
+                msg: garlic::SeqMsg::NoteOn,
+                ..
+            },
+            ..
+        }) => false,
+        _ => true
+    }
+}
+
+fn find_sequence_with_open_note (seq: & &mut Vec::<garlic::SeqEvent>, key: usize) -> bool {
+    match seq.last() {
+        Some(garlic::SeqEvent {
+            message: garlic::NoteMessage {
+                msg: garlic::SeqMsg::NoteOn,
+                key,
+                ..
+            },
+            ..
+        }) => true,
+        _ => false
     }
 }
