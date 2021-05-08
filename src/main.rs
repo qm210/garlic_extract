@@ -55,7 +55,7 @@ fn main() {
     let group_iterator = time_grouped_events.iter();
     for (tick, group) in tick_iterator.zip(group_iterator) {
         let time = (*tick as f32) * secs_per_tick;
-        println!("group at {} -- {:?}", time, group);
+        println!("group at {} -- {:?}", tick, group);
     }
     /*
         for (ev, event) in .enumerate() {
