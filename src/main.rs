@@ -6,6 +6,8 @@
 *
 */
 
+type GroupedEventMap<'a> = std::collections::BTreeMap::<usize, Vec<midly::TrackEvent<'a>>>;
+
 mod garlic;
 
 fn main() {
@@ -26,23 +28,23 @@ fn main() {
     let meta_track = track_iter.next().unwrap();
     let secs_per_tick = calculate_secs_per_tick(&smf.header.timing, &meta_track);
 
-    let mut sequences = Vec::<garlic::Seq>::new();
-    let mut open_notes = Vec::<midly::num::u7>::new();
-    let mut time_grouped_events = std::collections::BTreeMap::<usize, Vec<midly::TrackEvent>>::new();
+    let mut time_grouped_events = GroupedEventMap::new();
 
-    let mut time = 0.;
-    for (t, track) in track_iter.enumerate() {
-        println!("------ track {} has {} events", t, track.len());
+    for track in track_iter {
+        //println!("------ track {} has {} events", t, track.len());
 
-        //open_notes.clear();
         let mut current_track_iter = track.iter();
         let mut current_tick = 0;
         while let Some(&event) = current_track_iter.next() { // does this
-            println!("-- event: {:?}", event);
+            // println!("-- event: {:?}", event);
             let delta = event.delta.as_int() as usize;
             if delta > 0 {
                 current_tick += delta;
             }
+            if !is_midi_event(&event) {
+                continue;
+            }
+
             if let Some(current_events) = time_grouped_events.get_mut(&current_tick) {
                 current_events.push(event);
             } else {
@@ -50,6 +52,10 @@ fn main() {
             }
         }
     }
+
+    sort_groups_inside_by_note(&mut time_grouped_events);
+
+    let mut sequences = Vec::<garlic::Seq>::new();
 
     let group_iterator = time_grouped_events.iter();
     for (tick, group) in group_iterator {
@@ -102,4 +108,19 @@ fn calculate_secs_per_tick(timing: &midly::Timing, track: &midly::Track) -> f32 
     println!("ppq, tempo, secs_per_tick = {:?}, {:?}, {:?}", ppq, tempo, secs_per_tick);
 
     secs_per_tick
+}
+
+fn is_midi_event(event: &midly::TrackEvent) -> bool {
+    match event.kind {
+        midly::TrackEventKind::Midi{..} => true,
+        _ => false
+    }
+}
+
+//fn sort_groups_inside_by_note<T: IntoIterator + Copy>(map: &mut T) where T::Item: std::fmt::Debug { for group in (&mut map).into_iter() { ... } } // mies gescheitert weil Copy nicht implementiert war..?
+fn sort_groups_inside_by_note(map: &mut GroupedEventMap) {
+        for (tick, group) in map.iter_mut() {
+        println!("this is magin!!, {:?}", group);
+        group.sort_by(|a, b| a.kind.key.as_int().cmp(b.kind.key.as_int()))
+    }
 }
