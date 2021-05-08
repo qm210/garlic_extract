@@ -6,7 +6,7 @@
 *
 */
 
-type GroupedEventMap<'a> = std::collections::BTreeMap::<usize, Vec<midly::TrackEvent<'a>>>;
+type GroupedMessageMap = std::collections::BTreeMap::<usize, Vec<midly::MidiMessage>>;
 
 mod garlic;
 
@@ -28,7 +28,8 @@ fn main() {
     let meta_track = track_iter.next().unwrap();
     let secs_per_tick = calculate_secs_per_tick(&smf.header.timing, &meta_track);
 
-    let mut time_grouped_events = GroupedEventMap::new();
+    let mut time_grouped_noteons = GroupedMessageMap::new();
+    let mut time_grouped_noteoffs = GroupedMessageMap::new();
 
     for track in track_iter {
         //println!("------ track {} has {} events", t, track.len());
@@ -41,42 +42,30 @@ fn main() {
             if delta > 0 {
                 current_tick += delta;
             }
-            if !is_midi_event(&event) {
-                continue;
-            }
-
-            if let Some(current_events) = time_grouped_events.get_mut(&current_tick) {
-                current_events.push(event);
-            } else {
-                time_grouped_events.insert(current_tick, vec![event]);
-            }
-        }
-    }
-
-    sort_groups_inside_by_note(&mut time_grouped_events);
-
-    let mut sequences = Vec::<garlic::Seq>::new();
-
-    let group_iterator = time_grouped_events.iter();
-    for (tick, group) in group_iterator {
-        let time = (*tick as f32) * secs_per_tick;
-        println!("group at {} -- {:?}", time, group);
-    }
-    /*
-        for (ev, event) in .enumerate() {
-            time += (event.delta.as_int() as f32) * secs_per_tick;
-
-            match event.kind {
-                midly::TrackEventKind::Midi { channel, message } => {
-                    println!("-- {} -- MIDI event {:?} {:?}", time, channel, message);
-                },
-                _ => {
-                    println!("-- event ignored: {:?}", event);
+            if let midly::TrackEventKind::Midi{message, ..} = event.kind {
+                match message {
+                    midly::MidiMessage::NoteOn{..} => {
+                        push_into_map(&mut time_grouped_noteons, current_tick, message);
+                    },
+                    midly::MidiMessage::NoteOff{..} => {
+                        push_into_map(&mut time_grouped_noteoffs, current_tick, message);
+                    }
+                    _ => ()
                 }
             }
         }
     }
-    */
+
+    sort_groups_inside_by_note(&mut time_grouped_noteoffs);
+    sort_groups_inside_by_note(&mut time_grouped_noteons);
+
+    let mut sequences = Vec::<garlic::Seq>::new();
+
+    let group_iterator = time_grouped_noteons.iter();
+    for (tick, group) in group_iterator {
+        let time = (*tick as f32) * secs_per_tick;
+        println!("group at {} -- {:?}", time, group);
+    }
 
 }
 
@@ -110,17 +99,20 @@ fn calculate_secs_per_tick(timing: &midly::Timing, track: &midly::Track) -> f32 
     secs_per_tick
 }
 
-fn is_midi_event(event: &midly::TrackEvent) -> bool {
-    match event.kind {
-        midly::TrackEventKind::Midi{..} => true,
-        _ => false
+//fn sort_groups_inside_by_note<T: IntoIterator + Copy>(map: &mut T) where T::Item: std::fmt::Debug { for group in (&mut map).into_iter() { ... } } // mies gescheitert weil Copy nicht implementiert war..?
+fn sort_groups_inside_by_note(map: &mut GroupedMessageMap) {
+        for (tick, group) in map.iter_mut() {
+        println!("this is magin!!, {:?}", group);
+        group.sort_by(|a, b| {
+            a.key.as_int().cmp(b.key.as_int())
+        })
     }
 }
 
-//fn sort_groups_inside_by_note<T: IntoIterator + Copy>(map: &mut T) where T::Item: std::fmt::Debug { for group in (&mut map).into_iter() { ... } } // mies gescheitert weil Copy nicht implementiert war..?
-fn sort_groups_inside_by_note(map: &mut GroupedEventMap) {
-        for (tick, group) in map.iter_mut() {
-        println!("this is magin!!, {:?}", group);
-        group.sort_by(|a, b| a.kind.key.as_int().cmp(b.kind.key.as_int()))
+fn push_into_map(map: &mut GroupedMessageMap, current_tick: usize, message: midly::MidiMessage) {
+    if let Some(current_events) = map.get_mut(&current_tick) {
+        current_events.push(message);
+    } else {
+        map.insert(current_tick, vec![message]);
     }
 }
