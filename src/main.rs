@@ -6,9 +6,37 @@
 *
 */
 
-type GroupedMessageMap = std::collections::BTreeMap::<usize, Vec<midly::MidiMessage>>;
-
 mod garlic;
+
+struct NoteMessage {
+    channel: usize,
+    key: usize,
+    vel: usize,
+}
+
+impl NoteMessage {
+    pub fn from(message: &midly::MidiMessage, channel: &midly::num::u4) -> Option<NoteMessage> {
+        let channel = channel.as_int() as usize;
+        if let midly::MidiMessage::NoteOn {key, vel} = message {
+            return Some(NoteMessage {
+                channel: channel,
+                key: key.as_int() as usize,
+                vel: vel.as_int() as usize,
+            });
+        }
+        if let midly::MidiMessage::NoteOff {key, vel} = message {
+            return Some(NoteMessage {
+                channel: channel,
+                key: key.as_int() as usize,
+                vel: vel.as_int() as usize,
+            });
+        }
+
+        None
+    }
+}
+
+type GroupedMessageMap = std::collections::BTreeMap::<usize, Vec<NoteMessage>>;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -42,22 +70,19 @@ fn main() {
             if delta > 0 {
                 current_tick += delta;
             }
-            if let midly::TrackEventKind::Midi{message, ..} = event.kind {
+            if let midly::TrackEventKind::Midi{message, channel} = event.kind {
                 match message {
                     midly::MidiMessage::NoteOn{..} => {
-                        push_into_map(&mut time_grouped_noteons, current_tick, message);
+                        sort_into_map(&mut time_grouped_noteons, current_tick, NoteMessage::from(&message, &channel).unwrap());
                     },
                     midly::MidiMessage::NoteOff{..} => {
-                        push_into_map(&mut time_grouped_noteoffs, current_tick, message);
+                        sort_into_map(&mut time_grouped_noteoffs, current_tick, NoteMessage::from(&message, &channel).unwrap());
                     }
                     _ => ()
                 }
             }
         }
     }
-
-    sort_groups_inside_by_note(&mut time_grouped_noteoffs);
-    sort_groups_inside_by_note(&mut time_grouped_noteons);
 
     let mut sequences = Vec::<garlic::Seq>::new();
 
@@ -99,19 +124,15 @@ fn calculate_secs_per_tick(timing: &midly::Timing, track: &midly::Track) -> f32 
     secs_per_tick
 }
 
-//fn sort_groups_inside_by_note<T: IntoIterator + Copy>(map: &mut T) where T::Item: std::fmt::Debug { for group in (&mut map).into_iter() { ... } } // mies gescheitert weil Copy nicht implementiert war..?
-fn sort_groups_inside_by_note(map: &mut GroupedMessageMap) {
-        for (tick, group) in map.iter_mut() {
-        println!("this is magin!!, {:?}", group);
-        group.sort_by(|a, b| {
-            a.key.as_int().cmp(b.key.as_int())
-        })
-    }
-}
-
-fn push_into_map(map: &mut GroupedMessageMap, current_tick: usize, message: midly::MidiMessage) {
+fn sort_into_map(map: &mut GroupedMessageMap, current_tick: usize, message: NoteMessage) {
     if let Some(current_events) = map.get_mut(&current_tick) {
-        current_events.push(message);
+        match message {
+            midly::MidiMessage::NoteOn {key, ..} | midly::MidiMessage::NoteOff {key, ..} {
+                let position = current_events.binary_search(&)
+                current_events.push(message);
+            }
+            _ => (),
+        }
     } else {
         map.insert(current_tick, vec![message]);
     }
