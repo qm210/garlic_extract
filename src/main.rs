@@ -90,6 +90,8 @@ fn main() {
         }
     }
 
+    remove_unnecessary_noteoffs(&mut sequences);
+
     for (index, seq) in sequences.iter().enumerate() {
         println!();
         println!("{}", format_sequence(&seq, &index));
@@ -174,4 +176,26 @@ fn format_sequence(seq: &garlic::Sequence, number: &usize) -> String {
     seq.iter().for_each(|event| result.push_str(&format!("{}{},", INDENTED_LINEBREAK, event)));
     result.push_str("\n    ];");
     return result;
+}
+
+fn remove_unnecessary_noteoffs(sequences: &mut Vec::<garlic::Sequence>) {
+    for sequence in sequences.iter_mut() {
+        let mut unnecessary_noteoff_indices = Vec::<usize>::new();
+        for i in 0 .. sequence.len() - 1 {
+            match (&sequence[i], &sequence[i+1]) {
+                (
+                    garlic::SeqEvent {time: time1, message: garlic::NoteMessage {msg: garlic::SeqMsg::NoteOff, ..}},
+                    garlic::SeqEvent {time: time2, message: garlic::NoteMessage {msg: garlic::SeqMsg::NoteOn, ..}}
+                ) => {
+                    if time1 == time2 {
+                        unnecessary_noteoff_indices.push(i);
+                    }
+                },
+                _ => ()
+            }
+        }
+        for unnecessary_index in unnecessary_noteoff_indices.iter().rev() {
+            sequence.remove(*unnecessary_index);
+        }
+    }
 }
