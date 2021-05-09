@@ -62,7 +62,7 @@ fn main() {
     let group_iterator = time_grouped_messages.iter();
     for (tick, group) in group_iterator {
         let time = (*tick as f32) * secs_per_tick;
-        println!("Note group at {} -- {:?}", time, group);
+        //println!("Note group at {} -- {:?}", time, group);
 
         for note in group.iter() {
             let note_event = garlic::SeqEvent { time, message: *note };
@@ -167,11 +167,11 @@ fn find_sequence_with_open_note (seq: &&mut Vec::<garlic::SeqEvent>, key: &usize
     }
 }
 
-const indented_linebreak: &str = "\n        ";
+const INDENTED_LINEBREAK: &str = "\n        ";
 
 fn format_sequence(seq: &garlic::Sequence, number: &usize) -> String {
     let mut result = String::from(format!("let sequence{}: [SeqEvent; {}] = [", number, seq.len()));
-    seq.iter().for_each(|event| result.push_str(&format!("{}{},", indented_linebreak, event)));
+    seq.iter().for_each(|event| result.push_str(&format!("{}{},", INDENTED_LINEBREAK, event)));
     result.push_str("\n    ];");
     return result;
 }
