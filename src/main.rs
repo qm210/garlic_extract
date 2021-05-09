@@ -31,6 +31,7 @@ fn main() {
     let secs_per_tick = calculate_secs_per_tick(&smf.header.timing, &meta_track);
 
     let mut time_grouped_messages = GroupedMessageMap::new();
+    let mut total_time: f32 = 0.;
 
     for track in track_iter {
         //println!("------ track {} has {} events", t, track.len());
@@ -52,6 +53,8 @@ fn main() {
                 }
             }
         }
+
+        total_time = total_time.max(current_tick as f32 * secs_per_tick)
     }
 
     let mut sequences = Vec::<garlic::Sequence>::new();
