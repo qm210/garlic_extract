@@ -75,6 +75,6 @@ impl std::fmt::Display for NoteMessage {
 
 impl std::fmt::Display for SeqEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "SeqEvent {{time: {}, message: {} }}", self.time, self.message)
+        write!(f, "SeqEvent {{time: {}, message: {} }}", (self.time * 10000.) as u32, self.message)
     }
 }
