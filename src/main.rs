@@ -95,6 +95,8 @@ fn main() {
         println!("{}", format_sequence(&seq, &index));
     }
 
+    println!();
+    println!("pub const SECONDS: TimeFloat = {:.3};", total_time + 0.5e-3);
 }
 
 fn calculate_secs_per_tick(timing: &midly::Timing, track: &midly::Track) -> f32 {
