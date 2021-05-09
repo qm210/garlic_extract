@@ -5,6 +5,7 @@ pub type TimeFloat = f32;
 
 pub type SeqParameter = f32; // check whether we have enough withi half::f16
 
+#[derive(Debug)]
 pub struct SeqEvent {
     pub time: TimeFloat,
     pub message: NoteMessage,
@@ -69,5 +70,11 @@ impl std::fmt::Display for NoteMessage {
             SeqMsg::NoteOff =>
                 write!(f, "SeqMsg::NoteOff")
         }
+    }
+}
+
+impl std::fmt::Display for SeqEvent {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "SeqEvent {{time: {}, message: {} }}", self.time, self.message)
     }
 }

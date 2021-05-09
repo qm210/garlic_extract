@@ -65,7 +65,8 @@ fn main() {
             let note_event = garlic::SeqEvent { time, message: *note };
             match note.msg {
                 garlic::SeqMsg::NoteOn => {
-                    match sequences.iter_mut().find(find_free_sequence) {
+                    //match sequences.iter_mut().find(find_free_sequence) {
+                    match sequences.iter_mut().find(|seq| find_free_sequence(seq)) {
                         Some(lowest_free_sequence) => {
                             lowest_free_sequence.push(note_event);
                         },
@@ -75,7 +76,7 @@ fn main() {
                     }
                 },
                 garlic::SeqMsg::NoteOff => {
-                    match sequences.iter_mut().find(|&mut seq| find_sequence_with_open_note(&&mut seq, note.key)) {
+                    match sequences.iter_mut().find(|seq| find_sequence_with_open_note(seq, &note.key)) {
                         Some(lowest_open_sequence) => {
                             lowest_open_sequence.push(note_event);
                         },
@@ -84,6 +85,11 @@ fn main() {
                 }
             }
         }
+    }
+
+    for (index, seq) in sequences.iter().enumerate() {
+        println!();
+        println!("{}", format_sequence(&seq, &index));
     }
 
 }
@@ -129,7 +135,7 @@ fn sort_into_map(map: &mut GroupedMessageMap, current_tick: usize, message: garl
 
 // guess I can put this into Iterator trait's position():
 // pub fn position<P>(&mut self, predicate: P) -> Option<usize> where P: FnMut(Self::Item) -> bool
-fn find_free_sequence (seq: & &mut Vec::<garlic::SeqEvent>) -> bool {
+fn find_free_sequence (seq: &&mut Vec::<garlic::SeqEvent>) -> bool {
     match seq.last() {
         Some(garlic::SeqEvent {
             message: garlic::NoteMessage {
@@ -142,16 +148,25 @@ fn find_free_sequence (seq: & &mut Vec::<garlic::SeqEvent>) -> bool {
     }
 }
 
-fn find_sequence_with_open_note (seq: & &mut Vec::<garlic::SeqEvent>, key: usize) -> bool {
+fn find_sequence_with_open_note (seq: &&mut Vec::<garlic::SeqEvent>, key: &usize) -> bool {
     match seq.last() {
         Some(garlic::SeqEvent {
             message: garlic::NoteMessage {
                 msg: garlic::SeqMsg::NoteOn,
-                key,
+                key: note_key,
                 ..
             },
             ..
-        }) => true,
+        }) => (note_key == key),
         _ => false
     }
+}
+
+const indented_linebreak: &str = "\n        ";
+
+fn format_sequence(seq: &garlic::Sequence, number: &usize) -> String {
+    let mut result = String::from(format!("let sequence{}: [SeqEvent; {}] = [", number, seq.len()));
+    seq.iter().for_each(|event| result.push_str(&format!("{}{},", indented_linebreak, event)));
+    result.push_str("\n    ];");
+    return result;
 }
