@@ -12,6 +12,9 @@ type GroupedMessageMap = std::collections::BTreeMap::<usize, Vec<garlic::NoteMes
 
 // to be clear: channel is ignored right now. I don't even know where to put this comment, so little do I care about it.
 
+const OFFSET_SECONDS: f32 = 0.5;
+const RELEASE_SECONDS: f32 = 2.;
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     println!("cli arguments: {:?}", args);
@@ -56,12 +59,13 @@ fn main() {
 
         total_time = total_time.max(current_tick as f32 * secs_per_tick)
     }
+    total_time += OFFSET_SECONDS + RELEASE_SECONDS;
 
     let mut sequences = Vec::<garlic::Sequence>::new();
 
     let group_iterator = time_grouped_messages.iter();
     for (tick, group) in group_iterator {
-        let time = (*tick as f32) * secs_per_tick;
+        let time = (*tick as f32) * secs_per_tick + OFFSET_SECONDS;
         //println!("Note group at {} -- {:?}", time, group);
 
         for note in group.iter() {
@@ -92,13 +96,14 @@ fn main() {
 
     remove_unnecessary_noteoffs(&mut sequences);
 
+    println!("pub const SECONDS: TimeFloat = {:.3};", total_time + 0.5e-3);
+
     for (index, seq) in sequences.iter().enumerate() {
         println!();
         println!("{}", format_sequence(&seq, &index));
     }
 
     println!();
-    println!("pub const SECONDS: TimeFloat = {:.3};", total_time + 0.5e-3);
 }
 
 fn calculate_secs_per_tick(timing: &midly::Timing, track: &midly::Track) -> f32 {
@@ -169,12 +174,12 @@ fn find_sequence_with_open_note (seq: &&mut Vec::<garlic::SeqEvent>, key: &usize
     }
 }
 
-const INDENTED_LINEBREAK: &str = "\n        ";
+const INDENTED_LINEBREAK: &str = "\n    ";
 
 fn format_sequence(seq: &garlic::Sequence, number: &usize) -> String {
-    let mut result = String::from(format!("let sequence{}: [SeqEvent; {}] = [", number, seq.len()));
+    let mut result = String::from(format!("const SEQUENCE_{}: [SeqEvent; {}] = [", number, seq.len()));
     seq.iter().for_each(|event| result.push_str(&format!("{}{},", INDENTED_LINEBREAK, event)));
-    result.push_str("\n    ];");
+    result.push_str("\n];");
     return result;
 }
 
